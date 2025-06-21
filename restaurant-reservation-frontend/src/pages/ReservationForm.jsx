@@ -1,144 +1,108 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 
 const ReservationForm = () => {
-  const { restaurantId } = useParams();
+  const { id } = useParams();
   const navigate = useNavigate();
-  const [restaurant, setRestaurant] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
   const [formData, setFormData] = useState({
     date: '',
     time: '',
-    tableType: 'twoSeater',
-    numberOfGuests: 2,
+    tableType: '2',
+    specialRequests: ''
   });
-
-  useEffect(() => {
-    const fetchRestaurant = async () => {
-      try {
-        const response = await axios.get(`http://localhost:5000/api/restaurants/${restaurantId}`);
-        setRestaurant(response.data);
-        setLoading(false);
-      } catch (err) {
-        setError('Failed to fetch restaurant details');
-        setLoading(false);
-      }
-    };
-
-    fetchRestaurant();
-  }, [restaurantId]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({
       ...prev,
-      [name]: value,
-      // Update number of guests based on table type
-      numberOfGuests: name === 'tableType' ? (value === 'twoSeater' ? 2 : 4) : prev.numberOfGuests
+      [name]: value
     }));
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError('');
+    setLoading(true);
+    setError(null);
 
     try {
       const token = localStorage.getItem('token');
+      if (!token) {
+        navigate('/login');
+        return;
+      }
+
       await axios.post(
-        'http://localhost:5000/api/reservations',
+        `http://localhost:5000/api/reservations/${id}`,
+        formData,
         {
-          restaurantId,
-          ...formData
-        },
-        {
-          headers: { Authorization: `Bearer ${token}` }
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
         }
       );
 
       navigate('/thank-you');
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to make reservation');
+      setError(err.response?.data?.message || 'Failed to make reservation. Please try again.');
+    } finally {
+      setLoading(false);
     }
   };
-
-  if (loading) {
-    return (
-      <div className="flex justify-center items-center min-h-[60vh]">
-        <div className="text-xl text-gray-600">Loading...</div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="flex justify-center items-center min-h-[60vh]">
-        <div className="text-xl text-red-600">{error}</div>
-      </div>
-    );
-  }
-
-  if (!restaurant) {
-    return (
-      <div className="flex justify-center items-center min-h-[60vh]">
-        <div className="text-xl text-red-600">Restaurant not found</div>
-      </div>
-    );
-  }
 
   // Get today's date in YYYY-MM-DD format for min date
   const today = new Date().toISOString().split('T')[0];
 
   return (
-    <div className="max-w-2xl mx-auto">
-      <h1 className="section-title text-center">Make a Reservation</h1>
-      <div className="card">
-        <div className="mb-6">
-          <h2 className="text-xl font-semibold text-primary">{restaurant.name}</h2>
-          <p className="text-gray-600 mt-1">{restaurant.description}</p>
-        </div>
+    <div className="max-w-2xl mx-auto px-4 py-8">
+      <div className="bg-white rounded-2xl shadow-lg p-8">
+        <h1 className="text-3xl font-bold text-gray-800 mb-6">Make a Reservation</h1>
+        
+        {error && (
+          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+            <p className="text-red-600">{error}</p>
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="space-y-6">
-          {error && (
-            <div className="bg-red-50 text-red-500 p-4 rounded-lg text-sm">
-              {error}
-            </div>
-          )}
-
+          {/* Date Selection */}
           <div>
-            <label htmlFor="date" className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
               Date
             </label>
             <input
               type="date"
-              id="date"
               name="date"
+              min={today}
               value={formData.date}
               onChange={handleChange}
-              min={today}
               required
-              className="input-field"
+              className="w-full p-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent transition-all"
             />
           </div>
 
+          {/* Time Selection */}
           <div>
-            <label htmlFor="time" className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
               Time
             </label>
             <select
-              id="time"
               name="time"
               value={formData.time}
               onChange={handleChange}
               required
-              className="input-field"
+              className="w-full p-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent transition-all"
             >
               <option value="">Select a time</option>
+              <option value="11:00">11:00 AM</option>
               <option value="12:00">12:00 PM</option>
               <option value="13:00">1:00 PM</option>
               <option value="14:00">2:00 PM</option>
+              <option value="15:00">3:00 PM</option>
+              <option value="16:00">4:00 PM</option>
+              <option value="17:00">5:00 PM</option>
               <option value="18:00">6:00 PM</option>
               <option value="19:00">7:00 PM</option>
               <option value="20:00">8:00 PM</option>
@@ -146,42 +110,71 @@ const ReservationForm = () => {
             </select>
           </div>
 
+          {/* Table Type Selection */}
           <div>
-            <label htmlFor="tableType" className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
               Table Type
             </label>
-            <select
-              id="tableType"
-              name="tableType"
-              value={formData.tableType}
-              onChange={handleChange}
-              required
-              className="input-field"
-            >
-              <option value="twoSeater">2-Seater Table ({restaurant.tables.twoSeater} available)</option>
-              <option value="fourSeater">4-Seater Table ({restaurant.tables.fourSeater} available)</option>
-            </select>
+            <div className="grid grid-cols-2 gap-4">
+              <label className="relative flex cursor-pointer">
+                <input
+                  type="radio"
+                  name="tableType"
+                  value="2"
+                  checked={formData.tableType === '2'}
+                  onChange={handleChange}
+                  className="peer sr-only"
+                />
+                <div className="w-full p-4 bg-white border border-gray-200 rounded-lg peer-checked:border-black peer-checked:bg-gray-50 transition-all">
+                  <div className="flex flex-col">
+                    <span className="font-medium text-gray-800">2-Seat Table</span>
+                    <span className="text-sm text-gray-500">Perfect for couples</span>
+                  </div>
+                </div>
+              </label>
+              <label className="relative flex cursor-pointer">
+                <input
+                  type="radio"
+                  name="tableType"
+                  value="4"
+                  checked={formData.tableType === '4'}
+                  onChange={handleChange}
+                  className="peer sr-only"
+                />
+                <div className="w-full p-4 bg-white border border-gray-200 rounded-lg peer-checked:border-black peer-checked:bg-gray-50 transition-all">
+                  <div className="flex flex-col">
+                    <span className="font-medium text-gray-800">4-Seat Table</span>
+                    <span className="text-sm text-gray-500">For small groups</span>
+                  </div>
+                </div>
+              </label>
+            </div>
           </div>
 
+          {/* Special Requests */}
           <div>
-            <label htmlFor="numberOfGuests" className="block text-sm font-medium text-gray-700 mb-1">
-              Number of Guests
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Special Requests (Optional)
             </label>
-            <input
-              type="number"
-              id="numberOfGuests"
-              name="numberOfGuests"
-              value={formData.numberOfGuests}
+            <textarea
+              name="specialRequests"
+              value={formData.specialRequests}
               onChange={handleChange}
-              min={1}
-              max={formData.tableType === 'twoSeater' ? 2 : 4}
-              required
-              className="input-field"
+              rows="3"
+              className="w-full p-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent transition-all resize-none"
+              placeholder="Any special requests or dietary requirements?"
             />
           </div>
 
-          <button type="submit" className="btn-primary w-full">
-            Confirm Reservation
+          {/* Submit Button */}
+          <button
+            type="submit"
+            disabled={loading}
+            className={`w-full py-3 px-4 bg-black text-white font-semibold rounded-lg 
+              ${loading ? 'opacity-75 cursor-not-allowed' : 'hover:bg-gray-800'} 
+              transition-colors duration-200`}
+          >
+            {loading ? 'Confirming Reservation...' : 'Confirm Reservation'}
           </button>
         </form>
       </div>
